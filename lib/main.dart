@@ -1,122 +1,205 @@
+
+import 'dart:async';
+import 'dart:io';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:kiosk_mode/kiosk_mode.dart';
+import 'input_url_screen.dart';
+import 'scanner_screen.dart';
 
 void main() {
+  // Memastikan semua Flutter binding sudah siap sebelum aplikasi berjalan.
+  WidgetsFlutterBinding.ensureInitialized();
   runApp(const MyApp());
 }
 
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
-  // This widget is the root of your application.
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Flutter Demo',
-      theme: ThemeData(
-        // This is the theme of your application.
-        //
-        // TRY THIS: Try running your application with "flutter run". You'll see
-        // the application has a purple toolbar. Then, without quitting the app,
-        // try changing the seedColor in the colorScheme below to Colors.green
-        // and then invoke "hot reload" (save your changes or press the "hot
-        // reload" button in a Flutter-supported IDE, or press "r" if you used
-        // the command line to start the app).
-        //
-        // Notice that the counter didn't reset back to zero; the application
-        // state is not lost during the reload. To reset the state, use hot
-        // restart instead.
-        //
-        // This works for code too, not just values: Most code changes can be
-        // tested with just a hot reload.
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
+    const Color primarySeedColor = Colors.blue;
+
+    final TextTheme appTextTheme = TextTheme(
+      displayLarge:
+          GoogleFonts.oswald(fontSize: 57, fontWeight: FontWeight.bold),
+      titleLarge: GoogleFonts.roboto(fontSize: 22, fontWeight: FontWeight.w500),
+      bodyMedium: GoogleFonts.openSans(fontSize: 14),
+      labelLarge: GoogleFonts.roboto(fontSize: 16, fontWeight: FontWeight.w500),
+    );
+
+    final ThemeData theme = ThemeData(
+      useMaterial3: true,
+      colorScheme: ColorScheme.fromSeed(
+        seedColor: primarySeedColor,
+        brightness: Brightness.light, // Mengubah ke tema terang
       ),
-      home: const MyHomePage(title: 'Flutter Demo Home Page'),
+      textTheme: appTextTheme,
+      appBarTheme: AppBarTheme(
+        backgroundColor: primarySeedColor,
+        foregroundColor: Colors.white,
+        titleTextStyle:
+            GoogleFonts.oswald(fontSize: 24, fontWeight: FontWeight.bold),
+      ),
+      elevatedButtonTheme: ElevatedButtonThemeData(
+        style: ElevatedButton.styleFrom(
+          foregroundColor: Colors.white,
+          backgroundColor: primarySeedColor,
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+          textStyle: appTextTheme.labelLarge,
+        ),
+      ),
+    );
+
+    return MaterialApp(
+      title: 'Aplikasi Ujian', // Menyesuaikan judul
+      theme: theme,
+      home: const MyHomePage(),
     );
   }
 }
 
 class MyHomePage extends StatefulWidget {
-  const MyHomePage({super.key, required this.title});
-
-  // This widget is the home page of your application. It is stateful, meaning
-  // that it has a State object (defined below) that contains fields that affect
-  // how it looks.
-
-  // This class is the configuration for the state. It holds the values (in this
-  // case the title) provided by the parent (in this case the App widget) and
-  // used by the build method of the State. Fields in a Widget subclass are
-  // always marked "final".
-
-  final String title;
+  const MyHomePage({super.key});
 
   @override
   State<MyHomePage> createState() => _MyHomePageState();
 }
 
 class _MyHomePageState extends State<MyHomePage> {
-  int _counter = 0;
+  bool _isKioskModeActive = false;
+  bool _isMenuVisible = false;
 
-  void _incrementCounter() {
+  Future<void> _activateKioskMode() async {
+    if (!Platform.isAndroid) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Mode Kios hanya didukung di Android.'),
+        ),
+      );
+      if (mounted) {
+        setState(() {
+          _isKioskModeActive = true;
+        });
+      }
+      return;
+    }
+
+    KioskMode currentKioskMode = await getKioskMode();
+
+    if (currentKioskMode == KioskMode.disabled) {
+      try {
+        await startKioskMode();
+        currentKioskMode = await getKioskMode();
+      } catch (e) {
+        print('Gagal memulai mode kios: $e');
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+                'Gagal mengaktifkan mode kios. Pastikan izin sudah benar.'),
+          ),
+        );
+      }
+    }
+
+    if (currentKioskMode == KioskMode.enabled && mounted) {
+      setState(() {
+        _isKioskModeActive = true;
+      });
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Mode kios tidak aktif. Tidak dapat melanjutkan.'),
+        ),
+      );
+    }
+  }
+
+  Future<void> _exitApp() async {
+    if (Platform.isAndroid) {
+      try {
+        await stopKioskMode();
+      } catch (e) {
+        print('Gagal menghentikan mode kios: $e');
+      }
+    }
+    SystemNavigator.pop();
+  }
+
+  void _showMainMenu() {
     setState(() {
-      // This call to setState tells the Flutter framework that something has
-      // changed in this State, which causes it to rerun the build method below
-      // so that the display can reflect the updated values. If we changed
-      // _counter without calling setState(), then the build method would not be
-      // called again, and so nothing would appear to happen.
-      _counter++;
+      _isMenuVisible = true;
     });
   }
 
   @override
   Widget build(BuildContext context) {
-    // This method is rerun every time setState is called, for instance as done
-    // by the _incrementCounter method above.
-    //
-    // The Flutter framework has been optimized to make rerunning build methods
-    // fast, so that you can just rebuild anything that needs updating rather
-    // than having to individually change instances of widgets.
     return Scaffold(
       appBar: AppBar(
-        // TRY THIS: Try changing the color here to a specific color (to
-        // Colors.amber, perhaps?) and trigger a hot reload to see the AppBar
-        // change color while the other colors stay the same.
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-        // Here we take the value from the MyHomePage object that was created by
-        // the App.build method, and use it to set our appbar title.
-        title: Text(widget.title),
+        title: const Text('Aplikasi Ujian'),
       ),
       body: Center(
-        // Center is a layout widget. It takes a single child and positions it
-        // in the middle of the parent.
         child: Column(
-          // Column is also a layout widget. It takes a list of children and
-          // arranges them vertically. By default, it sizes itself to fit its
-          // children horizontally, and tries to be as tall as its parent.
-          //
-          // Column has various properties to control how it sizes itself and
-          // how it positions its children. Here we use mainAxisAlignment to
-          // center the children vertically; the main axis here is the vertical
-          // axis because Columns are vertical (the cross axis would be
-          // horizontal).
-          //
-          // TRY THIS: Invoke "debug painting" (choose the "Toggle Debug Paint"
-          // action in the IDE, or press "p" in the console), to see the
-          // wireframe for each widget.
           mainAxisAlignment: MainAxisAlignment.center,
           children: <Widget>[
-            const Text('You have pushed the button this many times:'),
-            Text(
-              '$_counter',
-              style: Theme.of(context).textTheme.headlineMedium,
-            ),
+            if (!_isKioskModeActive)
+              ElevatedButton(
+                onPressed: _activateKioskMode,
+                child: const Text('Aktifkan Mode Ujian'),
+              ),
+            if (_isKioskModeActive && !_isMenuVisible)
+              ElevatedButton(
+                onPressed: _showMainMenu,
+                child: const Text('Menu Utama'),
+              ),
+            if (_isMenuVisible) ...[
+              ElevatedButton.icon(
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const ScannerScreen(),
+                    ),
+                  );
+                },
+                icon: const Icon(Icons.qr_code_scanner),
+                label: const Text('Scan QR'),
+              ),
+              const SizedBox(height: 20),
+              ElevatedButton.icon(
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                        builder: (context) => const InputUrlScreen()),
+                  );
+                },
+                icon: const Icon(Icons.link),
+                label: const Text('Masukan URL'),
+              ),
+              const SizedBox(height: 20),
+              ElevatedButton.icon(
+                onPressed: () {},
+                icon: const Icon(Icons.list_alt),
+                label: const Text('Daftar Soal'),
+              ),
+              const SizedBox(height: 40),
+              ElevatedButton.icon(
+                onPressed: _exitApp,
+                icon: const Icon(Icons.exit_to_app),
+                label: const Text('Keluar dari Mode Ujian'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.red.shade700,
+                ),
+              ),
+            ]
           ],
         ),
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _incrementCounter,
-        tooltip: 'Increment',
-        child: const Icon(Icons.add),
-      ), // This trailing comma makes auto-formatting nicer for build methods.
     );
   }
 }
