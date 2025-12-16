@@ -181,12 +181,6 @@ class _MyHomePageState extends State<MyHomePage> {
                 icon: const Icon(Icons.link),
                 label: const Text('Masukan URL'),
               ),
-              const SizedBox(height: 20),
-              ElevatedButton.icon(
-                onPressed: () {},
-                icon: const Icon(Icons.list_alt),
-                label: const Text('Daftar Soal'),
-              ),
               const SizedBox(height: 40),
               ElevatedButton.icon(
                 onPressed: _exitApp,
