@@ -1,9 +1,12 @@
 
 import 'dart:async';
+import 'dart:io';
 
 import 'package:battery_plus/battery_plus.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:kiosk_mode/kiosk_mode.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
 class WebViewScreen extends StatefulWidget {
@@ -78,7 +81,7 @@ class _WebViewScreenState extends State<WebViewScreen> {
     }
   }
 
-  void _monitorConnectivity() async {
+    void _monitorConnectivity() async {
     try {
       final initialResult = await _connectivity.checkConnectivity();
       _updateConnectionStatus(initialResult);
@@ -107,6 +110,7 @@ class _WebViewScreenState extends State<WebViewScreen> {
     });
   }
 
+
   @override
   void dispose() {
     _batterySubscription?.cancel();
@@ -114,12 +118,10 @@ class _WebViewScreenState extends State<WebViewScreen> {
     super.dispose();
   }
 
-  // --- FUNGSI KEMBALI PALING SEDERHANA (HANYA UNTUK TES) ---
   Future<void> _handleSimpleBack() async {
     if (await _controller.canGoBack()) {
       _controller.goBack();
     } else {
-      // Jika tidak bisa kembali, tampilkan pesan singkat
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -129,6 +131,69 @@ class _WebViewScreenState extends State<WebViewScreen> {
         );
       }
     }
+  }
+
+  Future<void> _showExitConfirmationDialog() async {
+    final confirmationController = TextEditingController();
+    bool isButtonEnabled = false;
+
+    return showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              title: const Text('Konfirmasi Keluar'),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text(
+                      'Silakan ketik "oke" untuk mengaktifkan tombol keluar.'),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: confirmationController,
+                    decoration: const InputDecoration(
+                      labelText: 'Ketik di sini',
+                      border: OutlineInputBorder(),
+                    ),
+                    onChanged: (value) {
+                      setDialogState(() {
+                        isButtonEnabled = value.toLowerCase() == 'oke';
+                      });
+                    },
+                  ),
+                ],
+              ),
+              actions: <Widget>[
+                TextButton(
+                  child: const Text('Batal'),
+                  onPressed: () => Navigator.of(context).pop(),
+                ),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: isButtonEnabled ? Colors.red : Colors.grey,
+                  ),
+                  onPressed: isButtonEnabled ? _exitApp : null,
+                  child: const Text('Keluar'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Future<void> _exitApp() async {
+    if (Platform.isAndroid) {
+      try {
+        await stopKioskMode();
+      } catch (e) {
+        print('Gagal menghentikan mode kios: $e');
+      }
+    }
+    SystemNavigator.pop();
   }
 
   IconData _getBatteryIcon(int level) {
@@ -160,29 +225,42 @@ class _WebViewScreenState extends State<WebViewScreen> {
       child: Scaffold(
         appBar: AppBar(
           automaticallyImplyLeading: false,
-          title: const Text('Ujian Online'),
+          title: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(_getConnectivityIcon(_connectivityResult), size: 20),
+              const SizedBox(width: 12),
+              Icon(_getBatteryIcon(_batteryLevel), size: 20),
+              const SizedBox(width: 6),
+              Text(
+                '$_batteryLevel%',
+                style: const TextStyle(fontSize: 14),
+              ),
+            ],
+          ),
+          leading: Row(
+            children: [
+              const SizedBox(width: 8),
+              IconButton(
+                icon: const Icon(Icons.arrow_back, size: 24),
+                onPressed: _handleSimpleBack,
+                tooltip: 'Kembali',
+              ),
+              IconButton(
+                icon: const Icon(Icons.refresh, size: 24),
+                onPressed: () => _controller.reload(),
+                tooltip: 'Muat Ulang',
+              ),
+            ],
+          ),
+          leadingWidth: 120,
           actions: [
-            Row(
-              children: [
-                Icon(_getConnectivityIcon(_connectivityResult)),
-                const SizedBox(width: 8),
-                Icon(_getBatteryIcon(_batteryLevel)),
-                const SizedBox(width: 4),
-                Text('$_batteryLevel%'),
-                const SizedBox(width: 16),
-              ],
-            ),
             IconButton(
-              icon: const Icon(Icons.refresh),
-              onPressed: () => _controller.reload(),
-              tooltip: 'Muat Ulang',
+              icon: const Icon(Icons.exit_to_app, color: Colors.red, size: 26),
+              onPressed: _showExitConfirmationDialog,
+              tooltip: 'Keluar',
             ),
-            IconButton(
-              icon: const Icon(Icons.arrow_back, color: Colors.blueAccent),
-              onPressed: _handleSimpleBack, // Menggunakan fungsi kembali sederhana
-              tooltip: 'Kembali ke Halaman Sebelumnya',
-            ),
-            const SizedBox(width: 8),
+            const SizedBox(width: 12),
           ],
         ),
         body: Stack(
