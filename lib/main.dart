@@ -1,5 +1,6 @@
 
 import 'dart:async';
+import 'dart:developer' as developer;
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -76,6 +77,7 @@ class _MyHomePageState extends State<MyHomePage> {
 
   Future<void> _activateKioskMode() async {
     if (!Platform.isAndroid) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Mode Kios hanya didukung di Android.'),
@@ -90,13 +92,15 @@ class _MyHomePageState extends State<MyHomePage> {
     }
 
     KioskMode currentKioskMode = await getKioskMode();
+    if (!mounted) return;
 
     if (currentKioskMode == KioskMode.disabled) {
       try {
         await startKioskMode();
         currentKioskMode = await getKioskMode();
-      } catch (e) {
-        print('Gagal memulai mode kios: $e');
+      } catch (e, s) {
+        developer.log('Gagal memulai mode kios: $e', name: 'KioskMode', error: e, stackTrace: s);
+        if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text(
@@ -111,6 +115,7 @@ class _MyHomePageState extends State<MyHomePage> {
         _isKioskModeActive = true;
       });
     } else {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Mode kios tidak aktif. Tidak dapat melanjutkan.'),
@@ -123,8 +128,8 @@ class _MyHomePageState extends State<MyHomePage> {
     if (Platform.isAndroid) {
       try {
         await stopKioskMode();
-      } catch (e) {
-        print('Gagal menghentikan mode kios: $e');
+      } catch (e, s) {
+        developer.log('Gagal menghentikan mode kios: $e', name: 'KioskMode', error: e, stackTrace: s);
       }
     }
     SystemNavigator.pop();

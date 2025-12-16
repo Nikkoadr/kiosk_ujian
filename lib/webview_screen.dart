@@ -1,5 +1,6 @@
 
 import 'dart:async';
+import 'dart:developer' as developer;
 import 'dart:io';
 
 import 'package:battery_plus/battery_plus.dart';
@@ -76,20 +77,20 @@ class _WebViewScreenState extends State<WebViewScreen> {
         _batteryLevel = await _battery.batteryLevel;
         if (mounted) setState(() {});
       });
-    } catch (e) {
-      print("Gagal memantau baterai: $e");
+    } catch (e, s) {
+      developer.log('Gagal memantau baterai: $e', name: 'Battery', error: e, stackTrace: s);
     }
   }
 
-    void _monitorConnectivity() async {
+  void _monitorConnectivity() async {
     try {
       final initialResult = await _connectivity.checkConnectivity();
       _updateConnectionStatus(initialResult);
 
       _connectivitySubscription =
           _connectivity.onConnectivityChanged.listen(_updateConnectionStatus);
-    } catch (e) {
-      print("Gagal memantau konektivitas: $e");
+    } catch (e, s) {
+      developer.log('Gagal memantau konektivitas: $e', name: 'Connectivity', error: e, stackTrace: s);
     }
   }
 
@@ -110,7 +111,6 @@ class _WebViewScreenState extends State<WebViewScreen> {
     });
   }
 
-
   @override
   void dispose() {
     _batterySubscription?.cancel();
@@ -122,14 +122,13 @@ class _WebViewScreenState extends State<WebViewScreen> {
     if (await _controller.canGoBack()) {
       _controller.goBack();
     } else {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Tidak ada halaman sebelumnya untuk kembali.'),
-            duration: Duration(seconds: 2),
-          ),
-        );
-      }
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Tidak ada halaman sebelumnya untuk kembali.'),
+          duration: Duration(seconds: 2),
+        ),
+      );
     }
   }
 
@@ -137,6 +136,7 @@ class _WebViewScreenState extends State<WebViewScreen> {
     final confirmationController = TextEditingController();
     bool isButtonEnabled = false;
 
+    if (!mounted) return;
     return showDialog(
       context: context,
       barrierDismissible: false,
@@ -189,8 +189,8 @@ class _WebViewScreenState extends State<WebViewScreen> {
     if (Platform.isAndroid) {
       try {
         await stopKioskMode();
-      } catch (e) {
-        print('Gagal menghentikan mode kios: $e');
+      } catch (e, s) {
+        developer.log('Gagal menghentikan mode kios: $e', name: 'KioskMode', error: e, stackTrace: s);
       }
     }
     SystemNavigator.pop();
