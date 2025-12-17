@@ -1,4 +1,3 @@
-
 import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import 'webview_screen.dart';
@@ -14,17 +13,16 @@ class _ScannerScreenState extends State<ScannerScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Pindai Kode QR'),
-      ),
+      appBar: AppBar(title: const Text('Pindai Kode QR')),
       body: MobileScanner(
         onDetect: (capture) {
           final List<Barcode> barcodes = capture.barcodes;
           if (barcodes.isNotEmpty) {
             final String? url = barcodes.first.rawValue;
-            if (url != null && (url.startsWith('http://') || url.startsWith('https://'))) {
+            if (url != null &&
+                (url.startsWith('http://') || url.startsWith('https://'))) {
               if (!mounted) return;
-              Navigator.pop(context); 
+              Navigator.pop(context);
               Navigator.push(
                 context,
                 MaterialPageRoute(
@@ -35,7 +33,9 @@ class _ScannerScreenState extends State<ScannerScreen> {
               if (!mounted) return;
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(
-                  content: Text('Kode QR tidak valid. Pastikan ini adalah URL web.'),
+                  content: Text(
+                    'Kode QR tidak valid. Pastikan ini adalah URL web.',
+                  ),
                 ),
               );
             }

@@ -1,4 +1,3 @@
-
 import 'dart:async';
 import 'dart:developer' as developer;
 import 'dart:io';
@@ -56,7 +55,8 @@ class _WebViewScreenState extends State<WebViewScreen> {
             if (mounted) {
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
-                    content: Text('Gagal memuat halaman: ${error.description}')),
+                  content: Text('Gagal memuat halaman: ${error.description}'),
+                ),
               );
             }
           },
@@ -78,7 +78,12 @@ class _WebViewScreenState extends State<WebViewScreen> {
         if (mounted) setState(() {});
       });
     } catch (e, s) {
-      developer.log('Gagal memantau baterai: $e', name: 'Battery', error: e, stackTrace: s);
+      developer.log(
+        'Gagal memantau baterai: $e',
+        name: 'Battery',
+        error: e,
+        stackTrace: s,
+      );
     }
   }
 
@@ -87,10 +92,16 @@ class _WebViewScreenState extends State<WebViewScreen> {
       final initialResult = await _connectivity.checkConnectivity();
       _updateConnectionStatus(initialResult);
 
-      _connectivitySubscription =
-          _connectivity.onConnectivityChanged.listen(_updateConnectionStatus);
+      _connectivitySubscription = _connectivity.onConnectivityChanged.listen(
+        _updateConnectionStatus,
+      );
     } catch (e, s) {
-      developer.log('Gagal memantau konektivitas: $e', name: 'Connectivity', error: e, stackTrace: s);
+      developer.log(
+        'Gagal memantau konektivitas: $e',
+        name: 'Connectivity',
+        error: e,
+        stackTrace: s,
+      );
     }
   }
 
@@ -149,7 +160,8 @@ class _WebViewScreenState extends State<WebViewScreen> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   const Text(
-                      'Silakan ketik "oke" untuk mengaktifkan tombol keluar.'),
+                    'Silakan ketik "oke" untuk mengaktifkan tombol keluar.',
+                  ),
                   const SizedBox(height: 16),
                   TextField(
                     controller: confirmationController,
@@ -190,7 +202,12 @@ class _WebViewScreenState extends State<WebViewScreen> {
       try {
         await stopKioskMode();
       } catch (e, s) {
-        developer.log('Gagal menghentikan mode kios: $e', name: 'KioskMode', error: e, stackTrace: s);
+        developer.log(
+          'Gagal menghentikan mode kios: $e',
+          name: 'KioskMode',
+          error: e,
+          stackTrace: s,
+        );
       }
     }
     SystemNavigator.pop();
@@ -232,10 +249,7 @@ class _WebViewScreenState extends State<WebViewScreen> {
               const SizedBox(width: 12),
               Icon(_getBatteryIcon(_batteryLevel), size: 20),
               const SizedBox(width: 6),
-              Text(
-                '$_batteryLevel%',
-                style: const TextStyle(fontSize: 14),
-              ),
+              Text('$_batteryLevel%', style: const TextStyle(fontSize: 14)),
             ],
           ),
           leading: Row(
@@ -266,10 +280,7 @@ class _WebViewScreenState extends State<WebViewScreen> {
         body: Stack(
           children: [
             WebViewWidget(controller: _controller),
-            if (_isLoading)
-              const Center(
-                child: CircularProgressIndicator(),
-              ),
+            if (_isLoading) const Center(child: CircularProgressIndicator()),
           ],
         ),
       ),

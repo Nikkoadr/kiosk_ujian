@@ -1,4 +1,3 @@
-
 import 'package:flutter/material.dart';
 import 'webview_screen.dart';
 
@@ -18,9 +17,7 @@ class _InputUrlScreenState extends State<InputUrlScreen> {
       final url = _urlController.text.trim();
       Navigator.pushReplacement(
         context,
-        MaterialPageRoute(
-          builder: (context) => WebViewScreen(url: url),
-        ),
+        MaterialPageRoute(builder: (context) => WebViewScreen(url: url)),
       );
     }
   }
@@ -34,9 +31,7 @@ class _InputUrlScreenState extends State<InputUrlScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Masukan URL Ujian'),
-      ),
+      appBar: AppBar(title: const Text('Masukan URL Ujian')),
       body: Padding(
         padding: const EdgeInsets.all(24.0),
         child: Form(
