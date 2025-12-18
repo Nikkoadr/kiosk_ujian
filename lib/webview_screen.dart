@@ -20,65 +20,67 @@ class WebViewScreen extends StatefulWidget {
 
 class _WebViewScreenState extends State<WebViewScreen> {
   late final WebViewController _controller;
+  late final Uri _initialUri;
+
   bool _isLoading = true;
 
-  // Status Indikator
+  // ================= BATTERY =================
   final Battery _battery = Battery();
   int _batteryLevel = 100;
   StreamSubscription<BatteryState>? _batterySubscription;
 
+  // ================= CONNECTIVITY =================
   final Connectivity _connectivity = Connectivity();
   ConnectivityResult _connectivityResult = ConnectivityResult.none;
   StreamSubscription<List<ConnectivityResult>>? _connectivitySubscription;
 
+  // ================= INIT =================
   @override
   void initState() {
     super.initState();
+
+    // Normalisasi URL
+    String fixedUrl = widget.url.trim();
+    if (!fixedUrl.startsWith('http://') && !fixedUrl.startsWith('https://')) {
+      fixedUrl = 'https://$fixedUrl';
+    }
+    _initialUri = Uri.parse(fixedUrl);
 
     _controller = WebViewController()
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
       ..setNavigationDelegate(
         NavigationDelegate(
-          onPageStarted: (String url) {
-            setState(() {
-              _isLoading = true;
-            });
+          onPageStarted: (_) {
+            if (mounted) setState(() => _isLoading = true);
           },
-          onPageFinished: (String url) {
-            setState(() {
-              _isLoading = false;
-            });
+          onPageFinished: (_) {
+            if (mounted) setState(() => _isLoading = false);
           },
-          onWebResourceError: (WebResourceError error) {
-            // The net::ERR_FILE_NOT_FOUND error is now handled by fixing the URL
-            // before it gets to the WebView, so we only show errors for other issues.
-            if (error.errorCode != -6) { // -6 is net::ERR_FILE_NOT_FOUND
-                setState(() {
-                    _isLoading = false;
-                });
-                if (mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                        content: Text('Gagal memuat halaman: ${error.description}'),
-                        backgroundColor: Colors.red,
-                        ),
-                    );
-                }
-            }
+
+          // Abaikan error WebView umum (-1, -6)
+          onWebResourceError: (error) {
+            if (error.errorCode == -1 || error.errorCode == -6) return;
+
+            if (!mounted) return;
+            setState(() => _isLoading = false);
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Gagal memuat halaman (${error.errorCode})'),
+                backgroundColor: Colors.red,
+              ),
+            );
           },
-          // *** ALL NAVIGATION RESTRICTIONS REMOVED ***
-          // Any valid URL will be loaded.
-          onNavigationRequest: (NavigationRequest request) {
-            return NavigationDecision.navigate;
-          },
+
+          onNavigationRequest: (_) => NavigationDecision.navigate,
         ),
       )
-      ..loadRequest(Uri.parse(widget.url));
+      ..loadRequest(_initialUri);
 
     _monitorBattery();
     _monitorConnectivity();
   }
 
+  // ================= BATTERY =================
   void _monitorBattery() async {
     try {
       _batteryLevel = await _battery.batteryLevel;
@@ -89,50 +91,41 @@ class _WebViewScreenState extends State<WebViewScreen> {
         if (mounted) setState(() {});
       });
     } catch (e, s) {
-      developer.log(
-        'Gagal memantau baterai: $e',
-        name: 'Battery',
-        error: e,
-        stackTrace: s,
-      );
+      developer.log('Battery error', error: e, stackTrace: s);
     }
   }
 
+  // ================= CONNECTIVITY =================
   void _monitorConnectivity() async {
     try {
-      final initialResult = await _connectivity.checkConnectivity();
-      _updateConnectionStatus(initialResult);
+      final result = await _connectivity.checkConnectivity();
+      _updateConnectionStatus(result);
 
       _connectivitySubscription = _connectivity.onConnectivityChanged.listen(
         _updateConnectionStatus,
       );
     } catch (e, s) {
-      developer.log(
-        'Gagal memantau konektivitas: $e',
-        name: 'Connectivity',
-        error: e,
-        stackTrace: s,
-      );
+      developer.log('Connectivity error', error: e, stackTrace: s);
     }
   }
 
   void _updateConnectionStatus(List<ConnectivityResult> results) {
     if (!mounted) return;
 
-    var newResult = ConnectivityResult.none;
     if (results.contains(ConnectivityResult.wifi)) {
-      newResult = ConnectivityResult.wifi;
+      _connectivityResult = ConnectivityResult.wifi;
     } else if (results.contains(ConnectivityResult.mobile)) {
-      newResult = ConnectivityResult.mobile;
+      _connectivityResult = ConnectivityResult.mobile;
     } else if (results.contains(ConnectivityResult.ethernet)) {
-      newResult = ConnectivityResult.ethernet;
+      _connectivityResult = ConnectivityResult.ethernet;
+    } else {
+      _connectivityResult = ConnectivityResult.none;
     }
 
-    setState(() {
-      _connectivityResult = newResult;
-    });
+    setState(() {});
   }
 
+  // ================= DISPOSE =================
   @override
   void dispose() {
     _batterySubscription?.cancel();
@@ -140,29 +133,32 @@ class _WebViewScreenState extends State<WebViewScreen> {
     super.dispose();
   }
 
-  Future<void> _handleSimpleBack() async {
+  // ================= BACK =================
+  Future<void> _handleBack() async {
     if (await _controller.canGoBack()) {
       _controller.goBack();
     } else {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Tidak ada halaman sebelumnya untuk kembali.'),
+          content: Text('Tidak ada halaman sebelumnya'),
           duration: Duration(seconds: 2),
         ),
       );
     }
   }
 
-  Future<void> _showExitConfirmationDialog() async {
-    final confirmationController = TextEditingController();
-    bool isButtonEnabled = false;
+  // ================= EXIT =================
+  Future<void> _showExitDialog() async {
+    final controller = TextEditingController();
+    bool enabled = false;
 
     if (!mounted) return;
-    return showDialog(
+
+    showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (BuildContext context) {
+      builder: (_) {
         return StatefulBuilder(
           builder: (context, setDialogState) {
             return AlertDialog(
@@ -170,34 +166,31 @@ class _WebViewScreenState extends State<WebViewScreen> {
               content: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Text(
-                    'Silakan ketik "oke" untuk mengaktifkan tombol keluar.',
-                  ),
-                  const SizedBox(height: 16),
+                  const Text('Ketik "oke" untuk keluar'),
+                  const SizedBox(height: 12),
                   TextField(
-                    controller: confirmationController,
-                    decoration: const InputDecoration(
-                      labelText: 'Ketik di sini',
-                      border: OutlineInputBorder(),
-                    ),
+                    controller: controller,
                     onChanged: (value) {
                       setDialogState(() {
-                        isButtonEnabled = value.toLowerCase() == 'oke';
+                        enabled = value.toLowerCase() == 'oke';
                       });
                     },
+                    decoration: const InputDecoration(
+                      border: OutlineInputBorder(),
+                    ),
                   ),
                 ],
               ),
-              actions: <Widget>[
+              actions: [
                 TextButton(
+                  onPressed: () => Navigator.pop(context),
                   child: const Text('Batal'),
-                  onPressed: () => Navigator.of(context).pop(),
                 ),
                 ElevatedButton(
+                  onPressed: enabled ? _exitApp : null,
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: isButtonEnabled ? Colors.red : Colors.grey,
+                    backgroundColor: enabled ? Colors.red : Colors.grey,
                   ),
-                  onPressed: isButtonEnabled ? _exitApp : null,
                   child: const Text('Keluar'),
                 ),
               ],
@@ -212,19 +205,13 @@ class _WebViewScreenState extends State<WebViewScreen> {
     if (Platform.isAndroid) {
       try {
         await stopKioskMode();
-      } catch (e, s) {
-        developer.log(
-          'Gagal menghentikan mode kios: $e',
-          name: 'KioskMode',
-          error: e,
-          stackTrace: s,
-        );
-      }
+      } catch (_) {}
     }
     SystemNavigator.pop();
   }
 
-  IconData _getBatteryIcon(int level) {
+  // ================= ICON =================
+  IconData _batteryIcon(int level) {
     if (level > 90) return Icons.battery_full;
     if (level > 70) return Icons.battery_6_bar;
     if (level > 50) return Icons.battery_4_bar;
@@ -233,7 +220,7 @@ class _WebViewScreenState extends State<WebViewScreen> {
     return Icons.battery_alert;
   }
 
-  IconData _getConnectivityIcon(ConnectivityResult result) {
+  IconData _connectionIcon(ConnectivityResult result) {
     switch (result) {
       case ConnectivityResult.wifi:
         return Icons.wifi;
@@ -246,52 +233,126 @@ class _WebViewScreenState extends State<WebViewScreen> {
     }
   }
 
+  // ================= UI =================
   @override
   Widget build(BuildContext context) {
     return PopScope(
       canPop: false,
       child: Scaffold(
-        appBar: AppBar(
-          automaticallyImplyLeading: false,
-          title: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(_getConnectivityIcon(_connectivityResult), size: 20),
-              const SizedBox(width: 12),
-              Icon(_getBatteryIcon(_batteryLevel), size: 20),
-              const SizedBox(width: 6),
-              Text('$_batteryLevel%', style: const TextStyle(fontSize: 14)),
-            ],
-          ),
-          leading: Row(
-            children: [
-              const SizedBox(width: 8),
-              IconButton(
-                icon: const Icon(Icons.arrow_back, size: 24),
-                onPressed: _handleSimpleBack,
-                tooltip: 'Kembali',
+        backgroundColor: Colors.black,
+
+        // ===== HEADER =====
+        appBar: PreferredSize(
+          preferredSize: const Size.fromHeight(78),
+          child: SafeArea(
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              decoration: BoxDecoration(
+                color: Colors.indigo.shade700,
+                boxShadow: [
+                  BoxShadow(
+                    // ignore: deprecated_member_use
+                    color: Colors.black.withOpacity(0.25),
+                    blurRadius: 6,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
               ),
-              IconButton(
-                icon: const Icon(Icons.refresh, size: 24),
-                onPressed: () => _controller.reload(),
-                tooltip: 'Muat Ulang',
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Row(
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.arrow_back_ios_new, size: 18),
+                        color: Colors.white,
+                        onPressed: _handleBack,
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.refresh, size: 20),
+                        color: Colors.white,
+                        onPressed: () => _controller.reload(),
+                      ),
+                      const Spacer(),
+
+                      Icon(
+                        _connectionIcon(_connectivityResult),
+                        size: 18,
+                        color: Colors.white,
+                      ),
+                      const SizedBox(width: 8),
+
+                      Icon(
+                        _batteryIcon(_batteryLevel),
+                        size: 18,
+                        color: Colors.white,
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        '$_batteryLevel%',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: Colors.white,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+
+                      // Tombol Keluar Aman
+                      InkWell(
+                        onTap: _showExitDialog,
+                        borderRadius: BorderRadius.circular(20),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 6,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.red.shade600,
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: const Row(
+                            children: [
+                              Icon(
+                                Icons.exit_to_app,
+                                size: 16,
+                                color: Colors.white,
+                              ),
+                              SizedBox(width: 4),
+                              Text(
+                                'Keluar',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
               ),
-            ],
-          ),
-          leadingWidth: 120,
-          actions: [
-            IconButton(
-              icon: const Icon(Icons.exit_to_app, color: Colors.red, size: 26),
-              onPressed: _showExitConfirmationDialog,
-              tooltip: 'Keluar',
             ),
-            const SizedBox(width: 12),
-          ],
+          ),
         ),
+
+        // ===== BODY =====
         body: Stack(
           children: [
             WebViewWidget(controller: _controller),
-            if (_isLoading) const Center(child: CircularProgressIndicator()),
+            if (_isLoading)
+              Container(
+                // ignore: deprecated_member_use
+                color: Colors.black.withOpacity(0.2),
+                child: const Center(
+                  child: CircularProgressIndicator(
+                    strokeWidth: 3,
+                    color: Colors.white,
+                  ),
+                ),
+              ),
           ],
         ),
       ),
