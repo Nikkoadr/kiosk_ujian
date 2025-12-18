@@ -1,9 +1,9 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:myapp/input_url_screen.dart';
-import 'package:myapp/main.dart';
-import 'package:myapp/scanner_screen.dart';
+import 'package:ujian_ma_al_irsyad/input_url_screen.dart';
+import 'package:ujian_ma_al_irsyad/main.dart';
+import 'package:ujian_ma_al_irsyad/scanner_screen.dart';
 
 void main() {
   testWidgets('Full App Navigation and UI Flow Test', (WidgetTester tester) async {
