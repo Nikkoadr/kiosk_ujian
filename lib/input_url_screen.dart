@@ -14,11 +14,29 @@ class _InputUrlScreenState extends State<InputUrlScreen> {
 
   void _submit() {
     if (_formKey.currentState!.validate()) {
-      final url = _urlController.text.trim();
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (context) => WebViewScreen(url: url)),
-      );
+      String url = _urlController.text.trim();
+      
+      // Automatically add https:// if the scheme is missing
+      if (!url.startsWith('http://') && !url.startsWith('https://')) {
+        url = 'https://$url';
+      }
+      
+      // Final validation to ensure it's a valid URL before navigating
+      if (Uri.tryParse(url)?.isAbsolute ?? false) {
+         if (!mounted) return;
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => WebViewScreen(url: url)),
+        );
+      } else {
+        // Show an error if the final URL is still invalid
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Format URL tidak valid.'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
   }
 
@@ -50,18 +68,19 @@ class _InputUrlScreenState extends State<InputUrlScreen> {
                 controller: _urlController,
                 decoration: const InputDecoration(
                   labelText: 'URL Ujian',
-                  hintText: 'https://contoh-ujian.com',
+                  hintText: 'contoh-ujian.com',
                   border: OutlineInputBorder(),
                   prefixIcon: Icon(Icons.link),
                 ),
                 keyboardType: TextInputType.url,
+                autovalidateMode: AutovalidateMode.onUserInteraction,
                 validator: (value) {
                   if (value == null || value.trim().isEmpty) {
                     return 'URL tidak boleh kosong';
                   }
-                  if (!value.startsWith('http://') &&
-                      !value.startsWith('https://')) {
-                    return 'URL harus dimulai dengan http:// atau https://';
+                  // Basic check, the main logic is in _submit
+                  if (value.contains(' ')) {
+                    return 'URL tidak boleh mengandung spasi';
                   }
                   return null;
                 },
