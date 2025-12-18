@@ -34,6 +34,7 @@ class _WebViewScreenState extends State<WebViewScreen> {
   @override
   void initState() {
     super.initState();
+
     _controller = WebViewController()
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
       ..setNavigationDelegate(
@@ -49,16 +50,26 @@ class _WebViewScreenState extends State<WebViewScreen> {
             });
           },
           onWebResourceError: (WebResourceError error) {
-            setState(() {
-              _isLoading = false;
-            });
-            if (mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text('Gagal memuat halaman: ${error.description}'),
-                ),
-              );
+            // The net::ERR_FILE_NOT_FOUND error is now handled by fixing the URL
+            // before it gets to the WebView, so we only show errors for other issues.
+            if (error.errorCode != -6) { // -6 is net::ERR_FILE_NOT_FOUND
+                setState(() {
+                    _isLoading = false;
+                });
+                if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                        content: Text('Gagal memuat halaman: ${error.description}'),
+                        backgroundColor: Colors.red,
+                        ),
+                    );
+                }
             }
+          },
+          // *** ALL NAVIGATION RESTRICTIONS REMOVED ***
+          // Any valid URL will be loaded.
+          onNavigationRequest: (NavigationRequest request) {
+            return NavigationDecision.navigate;
           },
         ),
       )
